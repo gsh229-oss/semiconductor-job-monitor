@@ -41,7 +41,8 @@ SEMICONDUCTOR_KEYWORDS = ["반도체", "웨이퍼", "파운드리"]
 CAREER_FILTER = "30|40"
 
 # 이 필드들 중 하나라도 자식으로 가진 노드를 "채용정보 레코드"로 인식한다.
-RECORD_MARKER_TAGS = {"empWantedTitle", "coNm", "empWantedInfoUrl"}
+# (실제 응답 확인 결과: 회사명=empBusiNm, 마감일=empWantedEndt, 상세URL=empWantedHomepgDetail)
+RECORD_MARKER_TAGS = {"empWantedTitle", "empBusiNm", "empWantedHomepgDetail"}
 
 # 매칭점수 계산에 쓸 본인 스킬 목록 (5단계에서 이 부분을 더 정교하게 다듬을 예정)
 MY_SKILLS = {"Python", "데이터분석", "반도체공정", "TCAD", "FDC"}
@@ -93,7 +94,7 @@ def collect_all() -> list[dict]:
     seen: dict[tuple, dict] = {}
     for kw in SEMICONDUCTOR_KEYWORDS:
         for posting in fetch_postings(kw):
-            key = (posting.get("coNm"), posting.get("empWantedTitle"))
+            key = (posting.get("empBusiNm"), posting.get("empWantedTitle"))
             seen[key] = posting
     return list(seen.values())
 
@@ -121,9 +122,10 @@ if __name__ == "__main__":
 
     print("\n[매칭점수 상위 5개]")
     for r in sorted(results, key=lambda x: x["matchScore"], reverse=True)[:5]:
-        company = r.get("coNm", "?")
+        company = r.get("empBusiNm", "?")
         title = r.get("empWantedTitle", "?")
-        print(f"[{r['matchScore']}] {company} - {title}")
+        close_dt = r.get("empWantedEndt", "?")
+        print(f"[{r['matchScore']}] {company} - {title} (마감: {close_dt})")
 
     # 로컬 확인용으로 JSON 저장 (Notion 연동은 6단계에서 추가 예정)
     out_path = f"postings_{datetime.now().strftime('%Y%m%d')}.json"
