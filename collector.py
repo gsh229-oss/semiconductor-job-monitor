@@ -34,8 +34,23 @@ AUTH_KEY = os.getenv("WORK24_AUTH_KEY")
 BASE_URL = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo210L21.do"
 
 # 반도체 관련 공고를 걸러내기 위한 1차 키워드 (채용제목 기준 검색).
-# 실제 돌려보면서 노이즈가 많거나 결과가 너무 적으면 이 리스트를 조정하면 됩니다.
-SEMICONDUCTOR_KEYWORDS = ["반도체", "웨이퍼", "파운드리"]
+# 국내 일반 키워드 + 외국계 반도체 장비사 키워드를 함께 검색.
+# 'engineer' 처럼 너무 범용적인 단어는 무관한 공고까지 다 걸려서 일부러 뺐습니다.
+SEMICONDUCTOR_KEYWORDS = [
+    "반도체",
+    "웨이퍼",
+    "파운드리",
+    "반도체장비",
+    "세미콘",
+    "ASML",
+    "Applied Materials",
+    "Lam Research",
+    "KLA",
+    "Tokyo Electron",
+    "TEL",
+    "Entegris",
+    "Advantest",
+]
 
 # 경력구분: 30=신입, 40=인턴 (다중검색, | 로 구분)
 CAREER_FILTER = "30|40"
