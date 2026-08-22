@@ -58,8 +58,10 @@ SEMICONDUCTOR_KEYWORDS = [
     "DB하이텍",
 ]
 
-# 경력구분: 30=신입, 40=인턴 (다중검색, | 로 구분)
-CAREER_FILTER = "30|40"
+# 경력구분: 대기업 공채는 신입+경력 통합으로 분류되는 경우가 많아
+# 10(경력무관)도 포함해 넓게 잡는다. (기존 30|40만 쓰면 일부 대기업 공채가
+# '경력무관'으로만 태깅되어 누락되는 문제를 발견함)
+CAREER_FILTER = "10|30|40"
 
 # 이 필드들 중 하나라도 자식으로 가진 노드를 "채용정보 레코드"로 인식한다.
 # (실제 응답 확인 결과: 회사명=empBusiNm, 마감일=empWantedEndt, 상세URL=empWantedHomepgDetail)
@@ -86,6 +88,8 @@ def fetch_postings(keyword: str, start_page: int = 1, display: int = 100) -> lis
         "display": display,
         "empWantedTitle": keyword,
         "empWantedCareerCd": CAREER_FILTER,
+        "sortField": "regDt",
+        "sortOrderBy": "desc",  # 등록일 기준 최신순 (정렬 미지정 시 오래된 순으로 나와 최근 공고가 누락될 수 있음)
     }
 
     last_error = None
@@ -98,6 +102,10 @@ def fetch_postings(keyword: str, start_page: int = 1, display: int = 100) -> lis
             error_el = root.find(".//error")
             if error_el is not None and error_el.text:
                 raise RuntimeError(f"API 오류 응답: {error_el.text}")
+
+            total_el = root.find(".//total")
+            total = total_el.text if total_el is not None else "?"
+            print(f"  [조회] '{keyword}' 검색 결과 총 {total}건 (최대 {display}건까지만 가져옴)")
 
             return _extract_records(root)
         except (requests.exceptions.RequestException, ET.ParseError) as e:
