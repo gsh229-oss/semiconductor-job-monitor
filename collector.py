@@ -22,6 +22,7 @@
 
 import json
 import os
+import time
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
@@ -69,7 +70,11 @@ MY_SKILLS = {"Python", "데이터분석", "반도체공정", "TCAD", "FDC"}
 
 
 def fetch_postings(keyword: str, start_page: int = 1, display: int = 100) -> list[dict]:
-    """워크넷 공채속보 API를 호출해 공고 목록을 가져온다."""
+    """워크넷 공채속보 API를 호출해 공고 목록을 가져온다.
+
+    워크넷 서버가 간헐적으로 응답이 느리거나 일시적으로 접속이 안 되는 경우가
+    있어(약 30% 확률로 관측됨), 최대 3회까지 재시도한다.
+    """
     if not AUTH_KEY:
         raise RuntimeError("WORK24_AUTH_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.")
 
@@ -82,17 +87,28 @@ def fetch_postings(keyword: str, start_page: int = 1, display: int = 100) -> lis
         "empWantedTitle": keyword,
         "empWantedCareerCd": CAREER_FILTER,
     }
-    resp = requests.get(BASE_URL, params=params, timeout=10)
-    resp.raise_for_status()
 
-    root = ET.fromstring(resp.content)
+    last_error = None
+    for attempt in range(1, 4):  # 최대 3회 시도
+        try:
+            resp = requests.get(BASE_URL, params=params, timeout=20)
+            resp.raise_for_status()
+            root = ET.fromstring(resp.content)
 
-    # 에러 응답인지 먼저 확인 (예: 개인회원 제한, 인증키 오류 등)
-    error_el = root.find(".//error")
-    if error_el is not None and error_el.text:
-        raise RuntimeError(f"API 오류 응답: {error_el.text}")
+            error_el = root.find(".//error")
+            if error_el is not None and error_el.text:
+                raise RuntimeError(f"API 오류 응답: {error_el.text}")
 
-    return _extract_records(root)
+            return _extract_records(root)
+        except (requests.exceptions.RequestException, ET.ParseError) as e:
+            last_error = e
+            print(f"  [경고] '{keyword}' 요청 {attempt}회차 실패 ({type(e).__name__}), 재시도 중...")
+            if attempt < 3:
+                time.sleep(5 * attempt)  # 5초, 10초 간격으로 대기 후 재시도
+
+    # 3번 다 실패하면 이 키워드만 건너뛰고 나머지는 계속 진행
+    print(f"  [실패] '{keyword}' 는 3회 재시도 후에도 실패, 이번 실행에서는 건너뜁니다: {last_error}")
+    return []
 
 
 def _extract_records(root: ET.Element) -> list[dict]:
